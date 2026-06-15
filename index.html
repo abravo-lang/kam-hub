@@ -7,6 +7,26 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+#login-overlay{position:fixed;inset:0;background:#181818;z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:0}
+body.light #login-overlay{background:#f2f4f0}
+.login-box{background:#222;border:1px solid #333;border-radius:16px;padding:40px 36px;max-width:380px;width:90%;text-align:center}
+body.light .login-box{background:#fff;border-color:#d8ddd0}
+.login-box .lb-logo{display:flex;align-items:center;justify-content:center;gap:9px;margin-bottom:24px}
+.login-box .lb-icon{width:40px;height:40px;background:#5a9e2f;border-radius:8px;display:flex;align-items:center;justify-content:center}
+.login-box h2{font-family:'DM Serif Display',serif;font-size:1.4rem;margin-bottom:6px;color:#e8e8e8}
+body.light .login-box h2{color:#1a2016}
+.login-box p{font-size:.82rem;color:#888;margin-bottom:24px}
+.login-box input{width:100%;background:#2a2a2a;border:1px solid #444;border-radius:8px;padding:10px 14px;font-family:'DM Sans',sans-serif;font-size:.9rem;color:#e8e8e8;margin-bottom:12px;outline:none}
+body.light .login-box input{background:#f0f2ed;border-color:#d0d5c8;color:#1a2016}
+.login-box input:focus{border-color:#5a9e2f}
+.login-btn{width:100%;background:#5a9e2f;color:#fff;border:none;border-radius:8px;padding:11px;font-family:'DM Sans',sans-serif;font-size:.9rem;font-weight:600;cursor:pointer;transition:background .18s}
+.login-btn:hover{background:#4a8a22}
+.login-btn:disabled{background:#444;cursor:not-allowed}
+.login-msg{font-size:.8rem;margin-top:12px;min-height:20px;color:#7cc44a}
+.login-msg.err{color:#e06060}
+</style>
 <style>
 :root{
   --bg:#181818;--surface:#222;--surface2:#2a2a2a;--surface3:#303030;
@@ -401,6 +421,24 @@ body.admin-mode .page-header:hover .edit-hint{opacity:1}
 </style>
 </head>
 <body>
+
+<!-- LOGIN OVERLAY -->
+<div id="login-overlay">
+  <div class="login-box">
+    <div class="lb-logo">
+      <div class="lb-icon">
+        <svg viewBox="0 0 22 22" fill="none" width="22" height="22"><rect x="2" y="2" width="8" height="8" rx="1.5" fill="white"/><rect x="12" y="2" width="8" height="8" rx="1.5" fill="white" opacity=".6"/><rect x="2" y="12" width="8" height="8" rx="1.5" fill="white" opacity=".6"/><rect x="12" y="12" width="8" height="8" rx="1.5" fill="white" opacity=".3"/></svg>
+      </div>
+      <span style="font-family:'DM Sans',sans-serif;font-size:1rem;font-weight:600;color:#e8e8e8">KAM Hub</span>
+    </div>
+    <h2>Iniciar sesión</h2>
+    <p>Ingresá tu email de MailAmericas para recibir un link de acceso</p>
+    <input type="email" id="login-email" placeholder="tu@mailamericas.com" />
+    <button class="login-btn" id="login-btn" onclick="sendMagicLink()">Enviar link de acceso</button>
+    <div class="login-msg" id="login-msg"></div>
+  </div>
+</div>
+
 <header>
   <div class="logo">
     <div class="ma-logo">
@@ -689,6 +727,92 @@ body.admin-mode .page-header:hover .edit-hint{opacity:1}
 </div>
 
 <script>
+// ====== SUPABASE ======
+const SUPABASE_URL = 'https://xpkdfjfaxiawootvjpmy.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_JLwp4W-cy6WyI6Gd03zx4Q_BhpddK6t';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let currentUser = null;
+let userAppRole = 'readonly'; // admin | equipo | readonly
+
+async function sendMagicLink() {
+  const email = document.getElementById('login-email').value.trim();
+  const msg = document.getElementById('login-msg');
+  const btn = document.getElementById('login-btn');
+  if (!email) { msg.textContent = 'Ingresá tu email.'; msg.className = 'login-msg err'; return; }
+  btn.disabled = true;
+  msg.className = 'login-msg';
+  msg.textContent = 'Enviando...';
+  const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: 'https://mailamericaskams.netlify.app' } });
+  if (error) { msg.textContent = 'Error: ' + error.message; msg.className = 'login-msg err'; btn.disabled = false; }
+  else { msg.textContent = '✓ Revisá tu email — el link expira en 1 hora.'; }
+}
+
+document.getElementById('login-email').addEventListener('keydown', e => { if (e.key === 'Enter') sendMagicLink(); });
+
+async function loadSupabaseData() {
+  const [tm, tk, ta, tmn, tf, tur] = await Promise.all([
+    sb.from('team_members').select('*'),
+    sb.from('tasks').select('*'),
+    sb.from('accounts').select('*'),
+    sb.from('meeting_notes').select('*'),
+    sb.from('fixed_tasks').select('*'),
+    sb.from('user_roles').select('*'),
+  ]);
+  if (tm.data && tm.data.length) equipo = tm.data.map(r => ({ id: r.id, nombre: r.name, rol: r.role || '', cuenta: r.sub || 'todas', autonomia: '', foco: r.sub || '' }));
+  if (tk.data && tk.data.length) tasks = tk.data.map(r => ({ id: r.id, task: r.title, notes: r.notes || '', cuenta: r.account || 'interna', pais: '', kam: r.assignee || '', status: r.status || 'pendiente', priority: r.priority || 'media', escal: false, created: new Date(r.created_at).getTime(), origin: '' }));
+  if (ta.data && ta.data.length) clientes = ta.data.map(r => ({ id: r.id, nombre: r.name, desc: r.sub || '', corredor: '', modal: ['DDU full service'], kam: '', color: 0 }));
+  if (tmn.data && tmn.data.length) minutas = tmn.data.map(r => ({ id: r.id, titulo: r.title, fecha: r.date || '', cuenta: '', participantes: '', temas: r.content || '', decisiones: '', proximos: '' }));
+  // Determine user role
+  if (tur.data) {
+    const ur = tur.data.find(r => r.email === currentUser.email);
+    userAppRole = ur ? ur.role : (currentUser.email.endsWith('@mailamericas.com') ? 'equipo' : 'readonly');
+  }
+}
+
+async function saveTaskToSB(task) {
+  const row = { title: task.task, notes: task.notes, account: task.cuenta, assignee: task.kam, status: task.status, priority: task.priority };
+  if (typeof task.id === 'string' && task.id.length > 10) {
+    await sb.from('tasks').update(row).eq('id', task.id);
+  } else {
+    const { data } = await sb.from('tasks').insert(row).select().single();
+    if (data) task.id = data.id;
+  }
+}
+
+async function deleteTaskFromSB(id) {
+  if (typeof id === 'string' && id.length > 10) await sb.from('tasks').delete().eq('id', id);
+}
+
+// Realtime
+function subscribeRealtime() {
+  sb.channel('public-changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => { sb.from('tasks').select('*').then(({ data }) => { if (data) { tasks = data.map(r => ({ id: r.id, task: r.title, notes: r.notes || '', cuenta: r.account || 'interna', pais: '', kam: r.assignee || '', status: r.status || 'pendiente', priority: r.priority || 'media', escal: false, created: new Date(r.created_at).getTime(), origin: '' })); renderTasks(); renderProgress(); } }); })
+    .subscribe();
+}
+
+// Auth state listener
+sb.auth.onAuthStateChange(async (event, session) => {
+  if (session && session.user) {
+    currentUser = session.user;
+    await loadSupabaseData();
+    document.getElementById('login-overlay').style.display = 'none';
+    if (userAppRole === 'admin' || userAppRole === 'equipo') {
+      adminMode = true;
+      document.body.classList.add('admin-mode');
+    } else {
+      adminMode = false;
+    }
+    renderAll();
+    syncRolSelect();
+    updateBadge();
+    subscribeRealtime();
+    // Show user email in header
+    const badge = document.getElementById('mode-badge');
+    if (badge) badge.title = currentUser.email;
+  }
+});
+
 // ====== COLORS ======
 const COLORS=[
   {hex:"#5a9e2f",glow:"rgba(90,158,47,0.13)"},
@@ -1077,7 +1201,7 @@ function renderTasks(){
 }
 function toggleStatus(id){const t=tasks.find(t=>t.id===id);if(!t)return;t.status=cycle[(cycle.indexOf(t.status)+1)%cycle.length];renderTasks();}
 function toggleEscal(e,id){e.stopPropagation();const t=tasks.find(t=>t.id===id);if(t){t.escal=!t.escal;renderTasks();}}
-function delTask(e,id){e.stopPropagation();tasks=tasks.filter(t=>t.id!==id);renderTasks();}
+function delTask(e,id){e.stopPropagation();tasks=tasks.filter(t=>t.id!==id);renderTasks();if(currentUser)deleteTaskFromSB(id);}
 function setCuentaFilter(f,btn){cuentaFilter=f;syncDropdowns();renderTasks();}
 function setStatusFilter(f,btn){statusFilter=statusFilter===f?"all":f;document.querySelectorAll('.fs-pend,.fs-curso,.fs-bloq,.fs-ok').forEach(b=>b.classList.remove('active'));if(statusFilter!=="all")btn.classList.add('active');renderTasks();}
 function updateBadge(){const n=tasks.filter(t=>t.status!=="resuelta").length;const b=document.getElementById('badge-tracker');b.textContent=n;b.style.display=n>0?"":"none";}
@@ -1116,6 +1240,9 @@ function saveTask(){
     tasks.push({id:Date.now(),task,notes:document.getElementById('f-notes').value.trim(),cuenta:document.getElementById('f-cuenta').value,pais:document.getElementById('f-pais').value.trim(),kam:document.getElementById('f-kam').value,status:document.getElementById('f-status').value,priority:document.getElementById('f-priority').value,escal:document.getElementById('f-escal').checked,created:Date.now(),origin:document.getElementById('f-origin').value});
   }
   closeModal();renderTasks();
+  // Sync to Supabase
+  const saved = editId ? tasks.find(t=>t.id===editId) : tasks[tasks.length-1];
+  if (saved && currentUser) saveTaskToSB(saved);
 }
 
 // ====== ESCAL TABLE ======
@@ -1589,6 +1716,7 @@ function cycleDrawerTask() {
   t.status = cycle[(cycle.indexOf(t.status)+1) % cycle.length];
   renderTasks();
   openDrawer(drawerTaskId); // refresh drawer
+  if (currentUser) saveTaskToSB(t);
 }
 
 function editDrawerTask() {
@@ -1844,10 +1972,8 @@ function saveMultiEscal(){
 (function(){try{if(localStorage.getItem('kam-theme')==='light'){document.body.classList.add('light');document.getElementById('theme-btn').textContent='☀️';}}catch(e){}})();
 
 // ====== INIT ======
-document.body.classList.add('admin-mode');
-renderAll();
-syncRolSelect();
-updateBadge();
+// La app se inicializa en onAuthStateChange cuando hay sesión activa.
+// Si no hay sesión, el login-overlay queda visible.
 </script>
 
 <!-- TASK DRAWER -->
