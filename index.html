@@ -759,10 +759,11 @@ async function loadSupabaseData() {
     sb.from('fixed_tasks').select('*'),
     sb.from('user_roles').select('*'),
   ]);
-  if (tm.data && tm.data.length) equipo = tm.data.map(r => ({ id: r.id, nombre: r.name, rol: r.role || '', cuenta: r.sub || 'todas', autonomia: '', foco: r.sub || '' }));
-  if (tk.data && tk.data.length) tasks = tk.data.map(r => ({ id: r.id, task: r.title, notes: r.notes || '', cuenta: r.account || 'interna', pais: '', kam: r.assignee || '', status: r.status || 'pendiente', priority: r.priority || 'media', escal: false, created: new Date(r.created_at).getTime(), origin: '' }));
-  if (ta.data && ta.data.length) clientes = ta.data.map(r => ({ id: r.id, nombre: r.name, desc: r.sub || '', corredor: '', modal: ['DDU full service'], kam: '', color: 0 }));
-  if (tmn.data && tmn.data.length) minutas = tmn.data.map(r => ({ id: r.id, titulo: r.title, fecha: r.date || '', cuenta: '', participantes: '', temas: r.content || '', decisiones: '', proximos: '' }));
+  // Solo reemplaza datos si hay filas reales en Supabase
+  if (tk.data && tk.data.length > 0) tasks = tk.data.map(r => ({ id: r.id, task: r.title, notes: r.notes || '', cuenta: r.account || 'interna', pais: '', kam: r.assignee || '', status: r.status || 'pendiente', priority: r.priority || 'media', escal: false, created: new Date(r.created_at).getTime(), origin: '' }));
+  if (tm.data && tm.data.length > 0) equipo = tm.data.map(r => ({ id: r.id, nombre: r.name, rol: r.role || '', cuenta: r.sub || 'todas', autonomia: '', foco: r.sub || '' }));
+  if (ta.data && ta.data.length > 0) clientes = ta.data.map(r => ({ id: r.id, nombre: r.name, desc: r.sub || '', corredor: '', modal: ['DDU full service'], kam: '', color: 0 }));
+  if (tmn.data && tmn.data.length > 0) minutas = tmn.data.map(r => ({ id: r.id, titulo: r.title, fecha: r.date || '', cuenta: '', participantes: '', temas: r.content || '', decisiones: '', proximos: '' }));
   // Determine user role
   if (tur.data) {
     const ur = tur.data.find(r => r.email === currentUser.email);
