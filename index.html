@@ -471,7 +471,7 @@ body.admin-mode .page-header:hover .edit-hint{opacity:1}
       <button onclick="switchTab('minutas',this)">Minutas</button>
     </nav>
     <div class="header-sep"></div>
-    <div class="mode-badge admin" id="mode-badge" onclick="toggleAdminMode()" title="Click para cambiar modo">⚙ Admin</div>
+    <div class="mode-badge admin" id="mode-badge" onclick="toggleAdminMode()" title="Click para cambiar modo" style="display:none">⚙ Admin</div>
     <button class="theme-toggle" id="theme-btn" onclick="toggleTheme()">🌙</button>
   </div>
 </header>
@@ -774,9 +774,11 @@ async function loadSupabaseData() {
 async function saveTaskToSB(task) {
   const row = { title: task.task, notes: task.notes, account: task.cuenta, assignee: task.kam, status: task.status, priority: task.priority };
   if (typeof task.id === 'string' && task.id.length > 10) {
-    await sb.from('tasks').update(row).eq('id', task.id);
+    const { error } = await sb.from('tasks').update(row).eq('id', task.id);
+    if (error) console.error('SB update error:', error);
   } else {
-    const { data } = await sb.from('tasks').insert(row).select().single();
+    const { data, error } = await sb.from('tasks').insert(row).select().single();
+    if (error) console.error('SB insert error:', error);
     if (data) task.id = data.id;
   }
 }
@@ -833,8 +835,9 @@ let clientes=[
   {id:"falabella",nombre:"Falabella",desc:"China + US → USA / Perú",corredor:"China + US → USA / Perú",modal:["DAP"],kam:"senior1",color:1},
 ];
 let equipo=[
-  {id:"you",nombre:"Vos",rol:"Vos",cuenta:"todas",autonomia:"Líder",foco:"Conducción estratégica, foco comercial y bajada de línea"},
+  {id:"you",nombre:"Lead",rol:"Lead",cuenta:"todas",autonomia:"Lead",foco:"Conducción estratégica, foco comercial y bajada de línea"},
   {id:"senior1",nombre:"KAM Senior",rol:"Senior",cuenta:"falabella",autonomia:"Autónomo",foco:"Gestión end-to-end Falabella, reporte proactivo, incidencias CH→PE"},
+  {id:"semiseniор1",nombre:"KAM Semi Senior",rol:"Semi Senior",cuenta:"todas",autonomia:"Semi Autónomo",foco:""},
   {id:"junior1",nombre:"KAM Junior",rol:"Junior",cuenta:"spring",autonomia:"Supervisado",foco:"Seguimiento operativo Spring, tracking, coordinación Aduanas"},
 ];
 let bajadas={
