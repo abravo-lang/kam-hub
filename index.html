@@ -1241,7 +1241,7 @@ function renderTasks(){
       <div class="tt-cell"><span class="pdot ${pc}"></span>${pl}</div>
       <div class="tt-cell" style="color:${days>3?"#e06060":"var(--text-dim)"}">${t.status==="resuelta"?"✓":days+"d"}</div>
       <div class="tt-cell"><span class="escal-badge ${t.escal?"escal-si":"escal-no"}" onclick="toggleEscal(event,${t.id})">${t.escal?"⚠ Sí":"✓ No"}</span></div>
-      <div class="tt-cell">${showHidden?`<button class="del-btn" style="font-size:.7rem;padding:2px 6px;width:auto" onclick="restoreTask(${t.id})">Restaurar</button>`:`<button class="del-btn" title="Archivar" onclick="delTask(event,${t.id})">✕</button>`}</div>
+      <div class="tt-cell">${showHidden?'<button class="del-btn" style="font-size:.7rem;padding:2px 6px;width:auto" onclick="restoreTask('+t.id+')">Restaurar</button>':'<button class="del-btn" title="Archivar" onclick="delTask(event,'+t.id+')">✕</button>'}</div>
     </div>`;
   }).join("");
   updateBadge();renderProgress();
