@@ -1264,8 +1264,8 @@ function renderTasks(){
     const[pc,pl]=priorityMap[t.priority]||["p-b","—"];
     const days=Math.floor((Date.now()-t.created)/86400000);
     const cn=(clientes.find(c=>c.id===t.cuenta)||{nombre:t.cuenta==="interna"?"Interna":t.cuenta}).nombre;
-    const tid=JSON.stringify(t.id);
-    return`<div class="tt-row${t.origin?" from-minuta":""}" onclick="openDrawer(${tid})" title="Click para ver detalles">
+    const tid=t.id;
+    return`<div class="tt-row${t.origin?" from-minuta":""}" onclick="openDrawer('${tid}')" title="Click para ver detalles">
       <div class="tt-name">${t.task}${t.origin?("<div class=\"tt-origin\">↗ "+t.origin+"</div>"):""}</div>
       <div class="tt-cell">${cn}</div>
       <div class="tt-cell">${(()=>{const m=equipo.find(e=>e.nombre===t.kam);return m&&m.color?'<span style="color:'+m.color+';font-weight:600">'+t.kam+'</span>':t.kam;})()}</div>
@@ -1273,8 +1273,8 @@ function renderTasks(){
       <div class="tt-cell"><span class="sbadge ${sc}">${sl}</span></div>
       <div class="tt-cell"><span class="pdot ${pc}"></span>${pl}</div>
       <div class="tt-cell" style="color:${days>3?"#e06060":"var(--text-dim)"}">${t.status==="resuelta"?"✓":days+"d"}</div>
-      <div class="tt-cell"><span class="escal-badge ${t.escal?"escal-si":"escal-no"}" onclick="toggleEscal(event,${tid})">${t.escal?"⚠ Sí":"✓ No"}</span></div>
-      <div class="tt-cell">${showHidden?'<button class="del-btn" style="font-size:.7rem;padding:2px 6px;width:auto" onclick="restoreTask('+tid+')">Restaurar</button>':'<button class="del-btn" title="Archivar" onclick="delTask(event,'+tid+')">✕</button>'}</div>
+      <div class="tt-cell"><span class="escal-badge ${t.escal?"escal-si":"escal-no"}" onclick="toggleEscal(event,'${tid}')">${t.escal?"⚠ Sí":"✓ No"}</span></div>
+      <div class="tt-cell">${showHidden?'<button class="del-btn" style="font-size:.7rem;padding:2px 6px;width:auto" onclick="restoreTask(\''+tid+'\')">Restaurar</button>':'<button class="del-btn" title="Archivar" onclick="delTask(event,\''+tid+'\')">✕</button>'}</div>
     </div>`;
   }).join("");
   updateBadge();renderProgress();
