@@ -479,9 +479,9 @@ body.admin-mode .page-header:hover .edit-hint{opacity:1}
 </header>
 <main>
   <div class="page-header">
-    <div class="eyebrow"><span class="edit-title" id="page-eyebrow" contenteditable="false" onfocus="if(userAppRole==='admin')this.contentEditable='true'" onblur="this.contentEditable='false'" onclick="if(userAppRole==='admin')this.contentEditable='true'">Gestión de equipo · Spring &amp; Falabella</span></div>
-    <h1><span class="edit-title" contenteditable="false" onfocus="if(userAppRole==='admin')this.contentEditable='true'" onblur="this.contentEditable='false'" onclick="if(userAppRole==='admin')this.contentEditable='true'">Plan operativo &amp; seguimiento de cuentas</span><span class="edit-hint">✏ editar</span></h1>
-    <p><span class="edit-title" contenteditable="false" onfocus="if(userAppRole==='admin')this.contentEditable='true'" onblur="this.contentEditable='false'" onclick="if(userAppRole==='admin')this.contentEditable='true'">Estructura de roles, bajadas de línea y foco para destrabar la comunicación y la operación.</span></p>
+    <div class="eyebrow"><span class="edit-title" id="page-eyebrow" contenteditable="false" onfocus="if(userAppRole==='admin')this.contentEditable='true'" onblur="this.contentEditable='false'" onclick="if(userAppRole==='admin')this.contentEditable='true'">Gestión de equipo · MailAmericas</span></div>
+    <h1><span class="edit-title" contenteditable="false" onfocus="if(userAppRole==='admin')this.contentEditable='true'" onblur="this.contentEditable='false'" onclick="if(userAppRole==='admin')this.contentEditable='true'">Account Growth Tracker</span><span class="edit-hint">✏ editar</span></h1>
+    <p><span class="edit-title" contenteditable="false" onfocus="if(userAppRole==='admin')this.contentEditable='true'" onblur="this.contentEditable='false'" onclick="if(userAppRole==='admin')this.contentEditable='true'">Gestión estratégica de cuentas, seguimiento de oportunidades y alineación operativa para impulsar el crecimiento comercial.</span></p>
   </div>
 
   <!-- PLAN -->
@@ -764,10 +764,25 @@ async function loadSupabaseData() {
     sb.from('user_roles').select('*'),
   ]);
   // Solo reemplaza datos si hay filas reales en Supabase
-  if (tk.data && tk.data.length > 0) tasks = tk.data.map(r => ({ id: r.id, task: r.title, notes: r.notes || '', cuenta: r.account || 'interna', pais: '', kam: r.assignee || '', status: r.status || 'pendiente', priority: r.priority || 'media', escal: false, created: new Date(r.created_at).getTime(), origin: '' }));
-  if (tm.data && tm.data.length > 0) equipo = tm.data.map(r => ({ id: r.id, nombre: r.name, rol: r.role || '', cuenta: r.sub || 'todas', autonomia: '', foco: r.sub || '' }));
-  if (ta.data && ta.data.length > 0) clientes = ta.data.map(r => ({ id: r.id, nombre: r.name, desc: r.sub || '', corredor: '', modal: ['DDU full service'], kam: '', color: 0 }));
-  if (tmn.data && tmn.data.length > 0) minutas = tmn.data.map(r => ({ id: r.id, titulo: r.title, fecha: r.date || '', cuenta: '', participantes: '', temas: r.content || '', decisiones: '', proximos: '' }));
+  if (tk.data && tk.data.length > 0) tasks = tk.data.map(r => ({ id: r.id, task: r.title, notes: r.notes || '', cuenta: r.account || 'interna', pais: '', kam: r.assignee || '', status: r.status || 'pendiente', priority: r.priority || 'media', escal: false, hidden: r.hidden || false, created: new Date(r.created_at).getTime(), origin: '' }));
+  // Load app_state for equipo, clientes, cadencia, bajadas, issues, etc.
+  const {data: stateRows} = await sb.from('app_state').select('*');
+  if (stateRows && stateRows.length) {
+    const stateMap = Object.fromEntries(stateRows.map(r => [r.key, r.value]));
+    if (stateMap.equipo) equipo = stateMap.equipo;
+    if (stateMap.clientes) clientes = stateMap.clientes;
+    if (stateMap.cadencia) cadencia = stateMap.cadencia;
+    if (stateMap.bajadas) bajadas = stateMap.bajadas;
+    if (stateMap.issues) issues = stateMap.issues;
+    if (stateMap.minutas) minutas = stateMap.minutas;
+    if (stateMap.escalRows) escalRows = stateMap.escalRows;
+    if (stateMap.rolesDisponibles) rolesDisponibles = stateMap.rolesDisponibles;
+    if (stateMap.fijasData) fijasData = stateMap.fijasData;
+  } else {
+    if (tm.data && tm.data.length > 0) equipo = tm.data.map(r => ({ id: r.id, nombre: r.name, rol: r.role || '', cuenta: r.sub || 'todas', foco: r.sub || '', color: null }));
+    if (ta.data && ta.data.length > 0) clientes = ta.data.map(r => ({ id: r.id, nombre: r.name, desc: r.sub || '', corredor: '', modal: ['DDU full service'], kam: '', color: 0 }));
+    if (tmn.data && tmn.data.length > 0) minutas = tmn.data.map(r => ({ id: r.id, titulo: r.title, fecha: r.date || '', cuenta: '', participantes: '', temas: r.content || '', decisiones: '', proximos: '' }));
+  }
   // Determine user role
   if (tur.data) {
     const ur = tur.data.find(r => r.email === currentUser.email);
@@ -776,25 +791,41 @@ async function loadSupabaseData() {
 }
 
 async function saveTaskToSB(task) {
-  const row = { title: task.task, notes: task.notes, account: task.cuenta, assignee: task.kam, status: task.status, priority: task.priority };
+  const row = { title: task.task, notes: task.notes, account: task.cuenta, assignee: task.kam, status: task.status, priority: task.priority, hidden: task.hidden || false };
   if (typeof task.id === 'string' && task.id.length > 10) {
-    const { error } = await sb.from('tasks').update(row).eq('id', task.id);
-    if (error) console.error('SB update error:', error);
+    await sb.from('tasks').update(row).eq('id', task.id);
   } else {
-    const { data, error } = await sb.from('tasks').insert(row).select().single();
-    if (error) console.error('SB insert error:', error);
+    const { data } = await sb.from('tasks').insert(row).select().single();
     if (data) task.id = data.id;
   }
 }
 
 async function deleteTaskFromSB(id) {
-  if (typeof id === 'string' && id.length > 10) await sb.from('tasks').delete().eq('id', id);
+  if (typeof id === 'string' && id.length > 10) await sb.from('tasks').update({hidden: true}).eq('id', id);
+}
+
+async function saveAppState(key, value) {
+  try { await sb.from('app_state').upsert({key, value, updated_at: new Date().toISOString()}); } catch(e) {}
+}
+
+async function saveAllState() {
+  await Promise.all([
+    saveAppState('equipo', equipo),
+    saveAppState('clientes', clientes),
+    saveAppState('cadencia', cadencia),
+    saveAppState('bajadas', bajadas),
+    saveAppState('issues', issues),
+    saveAppState('minutas', minutas),
+    saveAppState('escalRows', escalRows),
+    saveAppState('rolesDisponibles', rolesDisponibles),
+    saveAppState('fijasData', fijasData),
+  ]);
 }
 
 // Realtime
 function subscribeRealtime() {
   sb.channel('public-changes')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => { sb.from('tasks').select('*').then(({ data }) => { if (data) { const sbTasks = data.map(r => ({ id: r.id, task: r.title, notes: r.notes || '', cuenta: r.account || 'interna', pais: '', kam: r.assignee || '', status: r.status || 'pendiente', priority: r.priority || 'media', escal: false, created: new Date(r.created_at).getTime(), origin: '' })); sbTasks.forEach(st => { if (!tasks.find(t => t.id === st.id)) tasks.push(st); }); tasks = tasks.filter(t => t.hidden || sbTasks.find(st => st.id === t.id) || typeof t.id === 'number'); saveState(); renderTasks(); renderProgress(); } }); })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => { sb.from('tasks').select('*').then(({ data }) => { if (data) { const sbTasks = data.map(r => ({ id: r.id, task: r.title, notes: r.notes || '', cuenta: r.account || 'interna', pais: '', kam: r.assignee || '', status: r.status || 'pendiente', priority: r.priority || 'media', escal: false, hidden: r.hidden || false, created: new Date(r.created_at).getTime(), origin: '' })); const localNumeric = tasks.filter(t => typeof t.id === 'number'); tasks = sbTasks.map(st => { const local = tasks.find(t => t.id === st.id); return local ? Object.assign({}, st, {escal: local.escal}) : st; }).concat(localNumeric); saveState(); renderTasks(); renderProgress(); } }); })
     .subscribe();
 }
 
@@ -975,6 +1006,7 @@ function loadState(){
 // ====== RENDER ALL (on admin toggle) ======
 function renderAll(){
   saveState();
+  if(currentUser) saveAllState();
   renderEquipo();renderClientes();renderBajadas();renderIssues();renderCadencia();
   syncDropdowns();syncRolSelect();renderProgress();renderTasks();renderEscalTable();renderFijas();
 }
@@ -1248,7 +1280,7 @@ function renderTasks(){
 }
 function toggleStatus(id){const t=tasks.find(t=>t.id===id);if(!t)return;t.status=cycle[(cycle.indexOf(t.status)+1)%cycle.length];renderTasks();}
 function toggleEscal(e,id){e.stopPropagation();const t=tasks.find(t=>t.id===id);if(t){t.escal=!t.escal;renderTasks();}}
-function delTask(e,id){e.stopPropagation();const t=tasks.find(t=>t.id===id);if(t){t.hidden=true;saveState();renderTasks();}}
+function delTask(e,id){e.stopPropagation();const t=tasks.find(t=>t.id===id);if(t){t.hidden=true;saveState();if(currentUser)deleteTaskFromSB(t.id);renderTasks();}}
 function setCuentaFilter(f,btn){cuentaFilter=f;syncDropdowns();renderTasks();}
 function setStatusFilter(f,btn){statusFilter=statusFilter===f?"all":f;document.querySelectorAll('.fs-pend,.fs-curso,.fs-bloq,.fs-ok').forEach(b=>b.classList.remove('active'));if(statusFilter!=="all")btn.classList.add('active');renderTasks();}
 function updateBadge(){const n=tasks.filter(t=>t.status!=="resuelta").length;const b=document.getElementById('badge-tracker');b.textContent=n;b.style.display=n>0?"":"none";}
