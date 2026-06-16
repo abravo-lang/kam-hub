@@ -743,7 +743,7 @@ async function sendMagicLink() {
   btn.disabled = true;
   msg.className = 'login-msg';
   msg.textContent = 'Enviando...';
-  const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: 'https://mailamericaskams.netlify.app' } });
+  const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: 'https://kamsmailamericas.netlify.app' } });
   if (error) { msg.textContent = 'Error: ' + error.message; msg.className = 'login-msg err'; btn.disabled = false; }
   else { msg.textContent = '✓ Revisá tu email — el link expira en 1 hora.'; }
 }
