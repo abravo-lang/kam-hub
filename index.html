@@ -1193,7 +1193,7 @@ function renderTasks(){
     return`<div class="tt-row${t.origin?" from-minuta":""}" onclick="openDrawer(${t.id})" title="Click para ver detalles">
       <div class="tt-name">${t.task}${t.origin?("<div class=\"tt-origin\">↗ "+t.origin+"</div>"):""}</div>
       <div class="tt-cell">${cn}</div>
-      <div class="tt-cell">${(()=>{const m=equipo.find(e=>e.nombre===t.kam);return m&&m.color?`<span style="color:${m.color};font-weight:600">${t.kam}</span>`:t.kam;})()</div>
+      <div class="tt-cell">${(()=>{const m=equipo.find(e=>e.nombre===t.kam);return m&&m.color?'<span style="color:'+m.color+';font-weight:600">'+t.kam+'</span>':t.kam;})()</div>
       <div class="tt-cell">${t.pais||"—"}</div>
       <div class="tt-cell"><span class="sbadge ${sc}">${sl}</span></div>
       <div class="tt-cell"><span class="pdot ${pc}"></span>${pl}</div>
