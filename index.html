@@ -1008,7 +1008,6 @@ function loadState(){
 // ====== RENDER ALL (on admin toggle) ======
 function renderAll(){
   saveState();
-  if(currentUser) saveAllState();
   renderEquipo();renderClientes();renderBajadas();renderIssues();renderCadencia();
   syncDropdowns();syncRolSelect();renderProgress();renderTasks();renderEscalTable();renderFijas();
 }
@@ -1191,12 +1190,12 @@ function cadTagKeydown(e, el) {
 function updateCadFreq(id,val){const r=cadencia.find(r=>r.id===id);if(r)r.freq=val;}
 function updateCadResp(id,val){const r=cadencia.find(r=>r.id===id);if(r)r.resp=val;}
 function updateCadRespSub(id,val){const r=cadencia.find(r=>r.id===id);if(r)r.respSub=val;}
-function addCadTag(id,val){const r=cadencia.find(r=>r.id===id);if(r&&val.trim())r.acciones.push(val.trim());renderCadencia();}
-function removeCadTag(el,idx){var id=el?el.dataset.id:el;var i=el?parseInt(el.dataset.ai):idx;const r=cadencia.find(r=>r.id===id);if(r)r.acciones.splice(i,1);renderCadencia();}
-function removeCadCuenta(id,ci){const r=cadencia.find(r=>r.id===id);if(r)r.cuentas.splice(ci,1);renderCadencia();}
-function cadCuentaKeydown(e,el){if(e.key==='Enter'){const r=cadencia.find(r=>r.id===el.dataset.rowid);if(r&&el.value.trim()){r.cuentas.push(el.value.trim());renderCadencia();}}}
-function delCadRow(id){cadencia=cadencia.filter(r=>r.id!==id);renderCadencia();}
-function addCadRow(){cadencia.push({id:"c"+Date.now(),freq:"Nueva",acciones:[],cuentas:[],resp:"",respSub:""});renderCadencia();}
+function addCadTag(id,val){const r=cadencia.find(r=>r.id===id);if(r&&val.trim()){r.acciones.push(val.trim());if(currentUser)saveAllState();}renderCadencia();}
+function removeCadTag(el,idx){var id=el?el.dataset.id:el;var i=el?parseInt(el.dataset.ai):idx;const r=cadencia.find(r=>r.id===id);if(r){r.acciones.splice(i,1);if(currentUser)saveAllState();}renderCadencia();}
+function removeCadCuenta(id,ci){const r=cadencia.find(r=>r.id===id);if(r){r.cuentas.splice(ci,1);if(currentUser)saveAllState();}renderCadencia();}
+function cadCuentaKeydown(e,el){if(e.key==='Enter'){const r=cadencia.find(r=>r.id===el.dataset.rowid);if(r&&el.value.trim()){r.cuentas.push(el.value.trim());if(currentUser)saveAllState();renderCadencia();}}}
+function delCadRow(id){cadencia=cadencia.filter(r=>r.id!==id);if(currentUser)saveAllState();renderCadencia();}
+function addCadRow(){cadencia.push({id:"c"+Date.now(),freq:"Nueva",acciones:[],cuentas:[],resp:"",respSub:""});if(currentUser)saveAllState();renderCadencia();}
 
 // ====== DROPDOWNS SYNC ======
 function syncDropdowns(){
@@ -1495,7 +1494,7 @@ function openClienteModal(id){
 }
 function closeClienteModal(){document.getElementById('modal-cliente').classList.remove('open');}
 function editCliente(id){openClienteModal(id);}
-function delCliente(id){if(clientes.length<=1){alert("Debe quedar al menos un cliente.");return;}clientes=clientes.filter(c=>c.id!==id);renderAll();}
+function delCliente(id){if(clientes.length<=1){alert("Debe quedar al menos un cliente.");return;}clientes=clientes.filter(c=>c.id!==id);if(currentUser)saveAllState();renderAll();}
 function saveCliente(){
   const nombre=document.getElementById('mc-nombre').value.trim();if(!nombre)return;
   const id=document.getElementById('mc-id').value||nombre.toLowerCase().replace(/\W+/g,"_")+Date.now();
@@ -1504,7 +1503,7 @@ function saveCliente(){
   const idx=clientes.findIndex(c=>c.id===id);
   const obj={id,nombre,desc:document.getElementById('mc-desc').value.trim(),corredor:document.getElementById('mc-corredor').value.trim(),modal:selected.length?selected:["DDU full service"],kam:document.getElementById('mc-kam').value,color:parseInt(document.getElementById('mc-color').value)||0};
   if(idx>=0)clientes[idx]=obj;else{clientes.push(obj);if(!bajadas[id])bajadas[id]={msgs:[]};if(!issues[id])issues[id]=[];}
-  closeClienteModal();renderAll();
+  if(currentUser)saveAllState();closeClienteModal();renderAll();
 }
 // Multi select toggle
 document.querySelectorAll('#mc-modal-multi .multi-opt').forEach(el=>{
@@ -1535,14 +1534,14 @@ function updateCuentaHidden(){
   document.getElementById('mp-cuenta').value=checked.length?checked.join(','):'todas';
 }
 function editPersona(id){openPersonaModal(id);}
-function delPersona(id){equipo=equipo.filter(p=>p.id!==id);renderAll();}
+function delPersona(id){equipo=equipo.filter(p=>p.id!==id);if(currentUser)saveAllState();renderAll();}
 function savePersona(){
   const nombre=document.getElementById('mp-nombre').value.trim();if(!nombre)return;
   const id=document.getElementById('mp-id').value||"p_"+Date.now();
   const idx=equipo.findIndex(p=>p.id===id);
   const obj={id,nombre,rol:document.getElementById('mp-rol').value,cuenta:document.getElementById('mp-cuenta').value,team:document.getElementById('mp-team').value.trim(),foco:document.getElementById('mp-foco').value.trim(),color:document.getElementById('mp-color').value||null};
   if(idx>=0)equipo[idx]=obj;else equipo.push(obj);
-  closePersonaModal();renderAll();
+  if(currentUser)saveAllState();closePersonaModal();renderAll();
 }
 
 // ====== ISSUES CRUD ======
@@ -1579,7 +1578,7 @@ function saveIssue(){
   const obj={id:iid||"i_"+Date.now(),titulo,tipo:document.getElementById('mi-tipo').value,desc:document.getElementById('mi-desc').value.trim(),pais:document.getElementById('mi-pais').value.trim(),paquetes:document.getElementById('mi-paquetes').value.trim(),enterado:document.getElementById('mi-enterado').value,impacto:document.getElementById('mi-impacto').value.trim(),accion:document.getElementById('mi-accion').value.trim()};
   const idx=issues[cid].findIndex(i=>i.id===iid);
   if(idx>=0)issues[cid][idx]=obj;else issues[cid].push(obj);
-  closeIssueModal();renderIssues();
+  if(currentUser)saveAllState();closeIssueModal();renderIssues();
 }
 function generarMailAlerta(){
   const titulo=document.getElementById('mi-titulo').value;
@@ -1758,7 +1757,7 @@ function closeMinutaModal(){document.getElementById('minuta-modal').classList.re
 function saveMinuta(){
   const titulo=document.getElementById('m-titulo').value.trim();if(!titulo)return;
   minutas.unshift({id:Date.now(),titulo,fecha:document.getElementById('m-fecha').value,cuenta:document.getElementById('m-cuenta').value,participantes:document.getElementById('m-parti').value.trim(),temas:document.getElementById('m-temas').value.trim(),decisiones:document.getElementById('m-decisiones').value.trim(),proximos:document.getElementById('m-proximos').value.trim(),tipo:"recon"});
-  closeMinutaModal();renderMinutas();
+  if(currentUser)saveAllState();closeMinutaModal();renderMinutas();
 }
 
 
