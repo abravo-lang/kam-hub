@@ -991,8 +991,8 @@ function renderEquipo(){
   var cards = equipo.map(function(p){
     var cc=rolColors[p.rol]||"var(--accent)";
     var cn=(clientes.find(c=>c.id===p.cuenta)||{nombre:p.cuenta==="todas"?"Todas":p.cuenta}).nombre;
-    var colorIdx=p.rol==="Vos"?0:p.rol==="Senior"?1:2;
-    var actionsHtml = (p.rol!=="Vos"&&adminMode)
+    var colorIdx=p.rol==="Senior"?1:p.rol==="Junior"?2:0;
+    var actionsHtml = adminMode
       ? makeCardActions("editPersona","delPersona",p.id)
       : '';
     var teamHtml = p.team ? '<span class="team-badge-pill">👥 '+p.team+'</span><br>' : '';
@@ -1002,7 +1002,7 @@ function renderEquipo(){
       +'<span class="dc-badge" style="background:'+cc+'18;color:'+cc+';border:1px solid '+cc+'44">'+cn+'</span>'
       +'<div class="dc-sub">'+p.foco+'</div>'
       +teamHtml
-      +'<div class="dc-sub" style="font-size:.66rem;color:var(--text-muted)">Autonomía: '+p.autonomia+'</div>'
+      +(p.foco?'<div class="dc-sub" style="font-size:.66rem;color:var(--text-muted)">'+p.foco+'</div>':'')
       +actionsHtml
       +'</div>';
   }).join('');
