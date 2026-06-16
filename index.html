@@ -9,7 +9,7 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-body:not(.user-admin) .edit-hint{display:none!important}.color-swatch{width:22px;height:22px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:transform .15s,border-color .15s;flex-shrink:0}.color-swatch:hover{transform:scale(1.2)}.color-swatch.selected{border-color:#fff;box-shadow:0 0 0 2px rgba(255,255,255,.6);transform:scale(1.15)}
+body:not(.user-admin) .edit-hint{display:none!important}.color-swatch{width:22px;height:22px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:transform .15s,border-color .15s;flex-shrink:0}.color-swatch:hover{transform:scale(1.2)}.color-swatch.selected{border-color:#222;box-shadow:0 0 0 3px currentColor,0 0 0 5px #222;transform:scale(1.18)}body.light .color-swatch.selected{border-color:#fff;box-shadow:0 0 0 3px currentColor,0 0 0 5px #333}
 #login-overlay{position:fixed;inset:0;background:#181818;z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:0}
 body.light #login-overlay{background:#f2f4f0}
 .login-box{background:#222;border:1px solid #333;border-radius:16px;padding:40px 36px;max-width:380px;width:90%;text-align:center}
@@ -535,6 +535,7 @@ body.admin-mode .page-header:hover .edit-hint{opacity:1}
       <button class="filter-btn fs-bloq" onclick="setStatusFilter('bloqueada',this)">Bloqueadas</button>
       <button class="filter-btn fs-ok" onclick="setStatusFilter('resuelta',this)">Resueltas</button>
       <button class="add-btn" onclick="openModal()">+ Nueva tarea</button>
+      <button class="filter-btn" id="btn-show-hidden" onclick="toggleShowHidden()" style="margin-left:auto;font-size:.75rem">Archivadas</button>
     </div>
     <div class="task-table">
       <div class="tt-header"><span>Tarea</span><span>Cuenta</span><span>KAM</span><span>País</span><span>Estado</span><span>Prioridad</span><span>Días</span><span>Escalación</span><span></span></div>
@@ -697,6 +698,7 @@ body.admin-mode .page-header:hover .edit-hint{opacity:1}
     <input type="hidden" id="mi-cliente-id">
     <input type="hidden" id="mi-issue-id">
     <div class="fg"><label>Título del issue</label><input type="text" id="mi-titulo" placeholder="Ej: Retenciones en aduana"></div>
+    <div class="fg"><label>Tipo de issue</label><select id="mi-tipo"><option value="Operativo">Operativo</option><option value="Tracking">Tracking</option><option value="Aduanas">Aduanas</option><option value="Comercial">Comercial</option><option value="Comunicación">Comunicación</option><option value="Otro">Otro</option></select></div>
     <div class="fg"><label>Descripción</label><textarea id="mi-desc" placeholder="Qué ocurrió..."></textarea></div>
     <div class="fg"><label>País</label><input type="text" id="mi-pais" placeholder="Ej: Argentina"></div>
     <div class="fg"><label>Paquetes afectados / sin resolución</label><input type="text" id="mi-paquetes" placeholder="Ej: 45 paquetes, lote #042"></div>
@@ -792,7 +794,7 @@ async function deleteTaskFromSB(id) {
 // Realtime
 function subscribeRealtime() {
   sb.channel('public-changes')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => { sb.from('tasks').select('*').then(({ data }) => { if (data) { tasks = data.map(r => ({ id: r.id, task: r.title, notes: r.notes || '', cuenta: r.account || 'interna', pais: '', kam: r.assignee || '', status: r.status || 'pendiente', priority: r.priority || 'media', escal: false, created: new Date(r.created_at).getTime(), origin: '' })); renderTasks(); renderProgress(); } }); })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => { sb.from('tasks').select('*').then(({ data }) => { if (data) { const sbTasks = data.map(r => ({ id: r.id, task: r.title, notes: r.notes || '', cuenta: r.account || 'interna', pais: '', kam: r.assignee || '', status: r.status || 'pendiente', priority: r.priority || 'media', escal: false, created: new Date(r.created_at).getTime(), origin: '' })); sbTasks.forEach(st => { if (!tasks.find(t => t.id === st.id)) tasks.push(st); }); tasks = tasks.filter(t => t.hidden || sbTasks.find(st => st.id === t.id) || typeof t.id === 'number'); saveState(); renderTasks(); renderProgress(); } }); })
     .subscribe();
 }
 
@@ -1002,7 +1004,6 @@ function renderEquipo(){
       +'<span class="dc-badge" style="background:'+cc+'18;color:'+cc+';border:1px solid '+cc+'44">'+cn+'</span>'
       +'<div class="dc-sub">'+p.foco+'</div>'
       +teamHtml
-      +(p.foco?'<div class="dc-sub" style="font-size:.66rem;color:var(--text-muted)">'+p.foco+'</div>':'')
       +actionsHtml
       +'</div>';
   }).join('');
@@ -1217,8 +1218,11 @@ function renderProgress(){
 const statusMap={pendiente:["s-pend","Pendiente"],"en-curso":["s-curso","En curso"],bloqueada:["s-bloq","Bloqueada"],resuelta:["s-ok","Resuelta"]};
 const priorityMap={alta:["p-a","Alta"],media:["p-m","Media"],baja:["p-b","Baja"]};
 const cycle=["pendiente","en-curso","bloqueada","resuelta"];
+let showHidden=false;
+function toggleShowHidden(){showHidden=!showHidden;document.getElementById('btn-show-hidden').classList.toggle('active',showHidden);document.getElementById('btn-show-hidden').textContent=showHidden?'Ocultar archivadas':'Archivadas';renderTasks();}
+function restoreTask(id){const t=tasks.find(t=>t.id===id);if(t){t.hidden=false;saveState();renderTasks();}}
 function renderTasks(){
-  let f=tasks;
+  let f=tasks.filter(t=>showHidden?t.hidden:!t.hidden);
   if(cuentaFilter!=="all")f=f.filter(t=>t.cuenta===cuentaFilter);
   if(statusFilter!=="all")f=f.filter(t=>t.status===statusFilter);
   const list=document.getElementById('task-list');
@@ -1237,14 +1241,14 @@ function renderTasks(){
       <div class="tt-cell"><span class="pdot ${pc}"></span>${pl}</div>
       <div class="tt-cell" style="color:${days>3?"#e06060":"var(--text-dim)"}">${t.status==="resuelta"?"✓":days+"d"}</div>
       <div class="tt-cell"><span class="escal-badge ${t.escal?"escal-si":"escal-no"}" onclick="toggleEscal(event,${t.id})">${t.escal?"⚠ Sí":"✓ No"}</span></div>
-      <div class="tt-cell"><button class="del-btn" onclick="delTask(event,${t.id})">✕</button></div>
+      <div class="tt-cell">${showHidden?`<button class="del-btn" style="font-size:.7rem;padding:2px 6px;width:auto" onclick="restoreTask(${t.id})">Restaurar</button>`:`<button class="del-btn" title="Archivar" onclick="delTask(event,${t.id})">✕</button>`}</div>
     </div>`;
   }).join("");
   updateBadge();renderProgress();
 }
 function toggleStatus(id){const t=tasks.find(t=>t.id===id);if(!t)return;t.status=cycle[(cycle.indexOf(t.status)+1)%cycle.length];renderTasks();}
 function toggleEscal(e,id){e.stopPropagation();const t=tasks.find(t=>t.id===id);if(t){t.escal=!t.escal;renderTasks();}}
-function delTask(e,id){e.stopPropagation();tasks=tasks.filter(t=>t.id!==id);renderTasks();if(currentUser)deleteTaskFromSB(id);}
+function delTask(e,id){e.stopPropagation();const t=tasks.find(t=>t.id===id);if(t){t.hidden=true;saveState();renderTasks();}}
 function setCuentaFilter(f,btn){cuentaFilter=f;syncDropdowns();renderTasks();}
 function setStatusFilter(f,btn){statusFilter=statusFilter===f?"all":f;document.querySelectorAll('.fs-pend,.fs-curso,.fs-bloq,.fs-ok').forEach(b=>b.classList.remove('active'));if(statusFilter!=="all")btn.classList.add('active');renderTasks();}
 function updateBadge(){const n=tasks.filter(t=>t.status!=="resuelta").length;const b=document.getElementById('badge-tracker');b.textContent=n;b.style.display=n>0?"":"none";}
@@ -1416,11 +1420,13 @@ function renderIssuesMainChart(){
     data=paises.map(p=>allIssues.filter(i=>i.pais===p).length);
     colors=["#5a9e2f","#4a9fd4","#e8a020","#e06060","#20b8a0","#a078d4"];
   } else if(issuesChartView==='tipo'){
-    // group by first word of titulo as type proxy
-    const tipos=[...new Set(allIssues.map(i=>i.titulo.split(/[\s\/]/)[0]).filter(Boolean))];
-    labels=tipos.length?tipos:["Sin datos"];
-    data=tipos.map(tp=>allIssues.filter(i=>i.titulo.startsWith(tp)).length);
-    colors=["#5a9e2f","#4a9fd4","#e8a020","#e06060","#20b8a0","#a078d4","#d4a800"];
+    const tipoColors={"Operativo":"#5a9e2f","Tracking":"#4a9fd4","Aduanas":"#e8a020","Comercial":"#a078d4","Comunicación":"#20b8a0","Otro":"#e06060"};
+    const paises=[...new Set(allIssues.map(i=>i.pais).filter(Boolean))];
+    const tipos=Object.keys(tipoColors);
+    if(chartInstances['chart-issues-main'])chartInstances['chart-issues-main'].destroy();
+    const ctx2=document.getElementById('chart-issues-main');if(!ctx2)return;
+    chartInstances['chart-issues-main']=new Chart(ctx2,{type:'bar',data:{labels:paises.length?paises:["Sin datos"],datasets:tipos.map(tp=>({label:tp,data:(paises.length?paises:["Sin datos"]).map(p=>allIssues.filter(i=>i.pais===p&&(i.tipo||'Operativo')===tp).length),backgroundColor:tipoColors[tp]+'99',borderColor:tipoColors[tp],borderWidth:2,borderRadius:4,borderSkipped:false}))},options:{...baseOpts,scales:{...baseOpts.scales,x:{...baseOpts.scales.x,stacked:true},y:{...baseOpts.scales.y,stacked:true}},plugins:{...baseOpts.plugins,legend:{display:true,labels:{color:textColor,font:{size:11}}}}}});
+    return;
   } else {
     labels=clientes.map(c=>c.nombre);
     data=clientes.map(c=>(issues[c.id]||[]).length);
@@ -1513,6 +1519,7 @@ function openIssueModal(clienteId,issueId){
     const iss=(issues[clienteId]||[]).find(i=>i.id===issueId);
     if(iss){
       document.getElementById('mi-titulo').value=iss.titulo;
+      document.getElementById('mi-tipo').value=iss.tipo||'Operativo';
       document.getElementById('mi-desc').value=iss.desc;
       document.getElementById('mi-pais').value=iss.pais;
       document.getElementById('mi-paquetes').value=iss.paquetes;
@@ -1534,7 +1541,7 @@ function saveIssue(){
   const cid=document.getElementById('mi-cliente-id').value;
   const iid=document.getElementById('mi-issue-id').value;
   if(!issues[cid])issues[cid]=[];
-  const obj={id:iid||"i_"+Date.now(),titulo,desc:document.getElementById('mi-desc').value.trim(),pais:document.getElementById('mi-pais').value.trim(),paquetes:document.getElementById('mi-paquetes').value.trim(),enterado:document.getElementById('mi-enterado').value,impacto:document.getElementById('mi-impacto').value.trim(),accion:document.getElementById('mi-accion').value.trim()};
+  const obj={id:iid||"i_"+Date.now(),titulo,tipo:document.getElementById('mi-tipo').value,desc:document.getElementById('mi-desc').value.trim(),pais:document.getElementById('mi-pais').value.trim(),paquetes:document.getElementById('mi-paquetes').value.trim(),enterado:document.getElementById('mi-enterado').value,impacto:document.getElementById('mi-impacto').value.trim(),accion:document.getElementById('mi-accion').value.trim()};
   const idx=issues[cid].findIndex(i=>i.id===iid);
   if(idx>=0)issues[cid][idx]=obj;else issues[cid].push(obj);
   closeIssueModal();renderIssues();
