@@ -764,7 +764,9 @@ async function loadSupabaseData() {
     sb.from('user_roles').select('*'),
   ]);
   // Solo reemplaza datos si hay filas reales en Supabase
+  console.log('[KAM] tasks from Supabase:', tk.data?.length, 'error:', tk.error?.message);
   if (tk.data && tk.data.length > 0) tasks = tk.data.map(r => ({ id: r.id, task: r.title, notes: r.notes || '', cuenta: r.account || 'interna', pais: '', kam: r.assignee || '', status: r.status || 'pendiente', priority: r.priority || 'media', escal: false, hidden: r.hidden || false, created: new Date(r.created_at).getTime(), origin: '' }));
+  console.log('[KAM] tasks after load:', tasks.length, 'hidden:', tasks.filter(t=>t.hidden).length);
   // Load app_state for equipo, clientes, cadencia, bajadas, issues, etc.
   const {data: stateRows} = await sb.from('app_state').select('*');
   if (stateRows && stateRows.length) {
