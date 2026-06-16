@@ -683,8 +683,7 @@ body.admin-mode .page-header:hover .edit-hint{opacity:1}
     <input type="hidden" id="mp-id">
     <div class="fg"><label>Nombre</label><input type="text" id="mp-nombre" placeholder="Ej: Lucía"></div>
     <div class="fg"><label>Rol</label><select id="mp-rol"></select><button class="roles-add-btn" style="margin-top:6px;font-size:.68rem;padding:4px" onclick="openRolesModal()" type="button">⚙ Gestionar roles disponibles</button></div>
-    <div class="fg"><label>Cuenta asignada</label><select id="mp-cuenta"></select></div>
-    <div class="fg"><label>Autonomía</label><select id="mp-autonomia"><option value="Supervisado">Supervisado</option><option value="Autónomo">Autónomo</option><option value="Líder">Líder</option></select></div>
+    <div class="fg"><label>Cuenta asignada</label><div id="mp-cuenta-checks" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px"></div><input type="hidden" id="mp-cuenta" value="todas"></div>
     <div class="fg"><label>Equipo / Team</label><input type="text" id="mp-team" placeholder="Ej: Team Argentina, Team México..."></div>
     <div class="fg"><label>Foco principal</label><input type="text" id="mp-foco" placeholder="Ej: Tracking y comunicación proactiva"></div>
     <div class="fg"><label>Color del nombre</label><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px" id="mp-color-picker"><span class="color-swatch" data-color="#5a9e2f" style="background:#5a9e2f" title="Verde" onclick="selectMemberColor(this)"></span><span class="color-swatch" data-color="#4a9fd4" style="background:#4a9fd4" title="Azul" onclick="selectMemberColor(this)"></span><span class="color-swatch" data-color="#a078d4" style="background:#a078d4" title="Violeta" onclick="selectMemberColor(this)"></span><span class="color-swatch" data-color="#e8a020" style="background:#e8a020" title="Naranja" onclick="selectMemberColor(this)"></span><span class="color-swatch" data-color="#e06060" style="background:#e06060" title="Rojo" onclick="selectMemberColor(this)"></span><span class="color-swatch" data-color="#20b8a0" style="background:#20b8a0" title="Teal" onclick="selectMemberColor(this)"></span><span class="color-swatch" data-color="#d4a800" style="background:#d4a800" title="Dorado" onclick="selectMemberColor(this)"></span><span class="color-swatch" data-color="#e87860" style="background:#e87860" title="Salmon" onclick="selectMemberColor(this)"></span><span class="color-swatch" data-color="#60b860" style="background:#60b860" title="Verde claro" onclick="selectMemberColor(this)"></span><span class="color-swatch" data-color="#f06090" style="background:#f06090" title="Rosa" onclick="selectMemberColor(this)"></span><input type="hidden" id="mp-color" value=""></div></div>
@@ -802,6 +801,7 @@ sb.auth.onAuthStateChange(async (event, session) => {
   if (session && session.user) {
     currentUser = session.user;
     await loadSupabaseData();
+    loadState(); // restaura ediciones locales (tiene prioridad sobre defaults de Supabase)
     document.getElementById('login-overlay').style.display = 'none';
     if (currentUser.email.endsWith('@mailamericas.com')) {
       adminMode = true;
@@ -944,8 +944,35 @@ function switchTab(tab,btn){
   if(tab==='minutas')renderMinutas();
 }
 
+// ====== PERSISTENCIA LOCAL ======
+function saveState(){
+  try{
+    localStorage.setItem('kam-equipo',JSON.stringify(equipo));
+    localStorage.setItem('kam-clientes',JSON.stringify(clientes));
+    localStorage.setItem('kam-tasks',JSON.stringify(tasks));
+    localStorage.setItem('kam-cadencia',JSON.stringify(cadencia));
+    localStorage.setItem('kam-bajadas',JSON.stringify(bajadas));
+    localStorage.setItem('kam-issues',JSON.stringify(issues));
+    localStorage.setItem('kam-minutas',JSON.stringify(minutas));
+    localStorage.setItem('kam-roles',JSON.stringify(rolesDisponibles));
+  }catch(e){}
+}
+function loadState(){
+  try{
+    const eq=localStorage.getItem('kam-equipo');if(eq)equipo=JSON.parse(eq);
+    const cl=localStorage.getItem('kam-clientes');if(cl)clientes=JSON.parse(cl);
+    const tk=localStorage.getItem('kam-tasks');if(tk)tasks=JSON.parse(tk);
+    const cd=localStorage.getItem('kam-cadencia');if(cd)cadencia=JSON.parse(cd);
+    const bj=localStorage.getItem('kam-bajadas');if(bj)bajadas=JSON.parse(bj);
+    const is=localStorage.getItem('kam-issues');if(is)issues=JSON.parse(is);
+    const mn=localStorage.getItem('kam-minutas');if(mn)minutas=JSON.parse(mn);
+    const rl=localStorage.getItem('kam-roles');if(rl)rolesDisponibles=JSON.parse(rl);
+  }catch(e){}
+}
+
 // ====== RENDER ALL (on admin toggle) ======
 function renderAll(){
+  saveState();
   renderEquipo();renderClientes();renderBajadas();renderIssues();renderCadencia();
   syncDropdowns();syncRolSelect();renderProgress();renderTasks();renderEscalTable();renderFijas();
 }
@@ -1098,19 +1125,25 @@ function renderCadencia(){
     var addInput = adminMode
       ? '<input class="tag-add-input" placeholder="+ acción" data-rowid="'+(row.id)+'" onkeydown="cadTagKeydown(event,this)">'
       : '';
-    var cuentaTags = row.cuentas.map(function(cu){
+    var cuentaTags = row.cuentas.map(function(cu,ci){
       var isSpring = cu==='Spring';
       var clr = isSpring?'var(--spring,#e8a020)':'var(--falabella,#4a9fd4)';
       var bg = isSpring?'rgba(232,160,32,.08)':'rgba(74,159,212,.08)';
       var bc = isSpring?'rgba(232,160,32,.25)':'rgba(74,159,212,.25)';
-      return '<span class="tag" style="color:'+clr+';border-color:'+bc+';background:'+bg+'">'+cu+'</span>';
+      var removeBtn = adminMode?'<button class="tag-remove" onclick="removeCadCuenta(\''+row.id+'\','+ci+')">✕</button>':'';
+      return '<span class="tag" style="color:'+clr+';border-color:'+bc+';background:'+bg+'">'+cu+removeBtn+'</span>';
     }).join('');
+    var addCuentaInput = adminMode?'<input class="tag-add-input" placeholder="+ cuenta" data-rowid="'+(row.id)+'" onkeydown="cadCuentaKeydown(event,this)">':'';
+    var respHtml = adminMode
+      ? '<input class="cad-freq-edit" style="font-weight:600;margin-bottom:2px" placeholder="Responsable" value="'+row.resp+'" onchange="updateCadResp(\''+row.id+'\',this.value)">'
+        +'<input class="cad-freq-edit" style="font-size:.75rem;color:var(--text-muted)" placeholder="Detalle..." value="'+row.respSub+'" onchange="updateCadRespSub(\''+row.id+'\',this.value)">'
+      : '<strong>'+row.resp+'</strong>'+row.respSub;
     var delBtn = adminMode ? '<button class="cad-del-btn" onclick="delCadRow(this.dataset.id)" data-id="'+(row.id)+'">✕</button>' : '<div></div>';
     return '<div class="cad-row">'
       +'<div>'+freqHtml+'</div>'
       +'<div class="cad-actions">'+actionTags+addInput+'</div>'
-      +'<div class="cad-actions">'+cuentaTags+'</div>'
-      +'<div class="cad-quien"><strong>'+row.resp+'</strong>'+row.respSub+'</div>'
+      +'<div class="cad-actions">'+cuentaTags+addCuentaInput+'</div>'
+      +'<div class="cad-quien">'+respHtml+'</div>'
       +delBtn
       +'</div>';
   }).join('');
@@ -1121,10 +1154,14 @@ function cadTagKeydown(e, el) {
 }
 
 function updateCadFreq(id,val){const r=cadencia.find(r=>r.id===id);if(r)r.freq=val;}
+function updateCadResp(id,val){const r=cadencia.find(r=>r.id===id);if(r)r.resp=val;}
+function updateCadRespSub(id,val){const r=cadencia.find(r=>r.id===id);if(r)r.respSub=val;}
 function addCadTag(id,val){const r=cadencia.find(r=>r.id===id);if(r&&val.trim())r.acciones.push(val.trim());renderCadencia();}
 function removeCadTag(el,idx){var id=el?el.dataset.id:el;var i=el?parseInt(el.dataset.ai):idx;const r=cadencia.find(r=>r.id===id);if(r)r.acciones.splice(i,1);renderCadencia();}
+function removeCadCuenta(id,ci){const r=cadencia.find(r=>r.id===id);if(r)r.cuentas.splice(ci,1);renderCadencia();}
+function cadCuentaKeydown(e,el){if(e.key==='Enter'){const r=cadencia.find(r=>r.id===el.dataset.rowid);if(r&&el.value.trim()){r.cuentas.push(el.value.trim());renderCadencia();}}}
 function delCadRow(id){cadencia=cadencia.filter(r=>r.id!==id);renderCadencia();}
-function addCadRow(){cadencia.push({id:"c"+Date.now(),freq:"Nueva",acciones:[],cuentas:["Spring"],resp:"",respSub:""});renderCadencia();}
+function addCadRow(){cadencia.push({id:"c"+Date.now(),freq:"Nueva",acciones:[],cuentas:[],resp:"",respSub:""});renderCadencia();}
 
 // ====== DROPDOWNS SYNC ======
 function syncDropdowns(){
@@ -1132,8 +1169,7 @@ function syncDropdowns(){
     "f-cuenta":()=>clientes.map(c=>`<option value="${c.id}">${c.nombre}</option>`).join("")+`<option value="interna">Interna</option>`,
     "f-kam":()=>equipo.map(p=>`<option value="${p.nombre}">${p.nombre}</option>`).join(""),
     "m-cuenta":()=>clientes.map(c=>`<option value="${c.id}">${c.nombre}</option>`).join("")+`<option value="interna">Equipo interno</option><option value="ambas">Todas</option>`,
-    "mc-kam":()=>equipo.filter(p=>p.rol!=="Vos").map(p=>`<option value="${p.id}">${p.nombre}</option>`).join(""),
-    "mp-cuenta":()=>clientes.map(c=>`<option value="${c.id}">${c.nombre}</option>`).join("")+`<option value="todas">Todas</option>`,
+    "mc-kam":()=>equipo.map(p=>`<option value="${p.id}">${p.nombre}</option>`).join(""),
   };
   Object.entries(selects).forEach(([id,fn])=>{const el=document.getElementById(id);if(el)el.innerHTML=fn();});
   // Tracker btns
@@ -1442,20 +1478,28 @@ function selectMemberColor(el){document.querySelectorAll("#mp-color-picker .colo
 function openPersonaModal(id){
   document.getElementById('mp-title').textContent=id?"Editar persona":"Nueva persona";
   document.getElementById('mp-id').value=id||"";
-  if(id){const p=equipo.find(p=>p.id===id);if(p){document.getElementById('mp-nombre').value=p.nombre;document.getElementById('mp-rol').value=p.rol;document.getElementById('mp-autonomia').value=p.autonomia;document.getElementById('mp-team').value=p.team||'';document.getElementById('mp-foco').value=p.foco;document.getElementById('mp-color').value=p.color||'';document.querySelectorAll('#mp-color-picker .color-swatch').forEach(function(s){s.classList.toggle('selected',s.dataset.color===(p.color||''));});}}
+  // Render cuenta checkboxes
+  const cuentaChecks=document.getElementById('mp-cuenta-checks');
+  const selectedCuentas=id?(()=>{const p=equipo.find(p=>p.id===id);return p&&p.cuenta?p.cuenta.split(','):[];})():[];
+  cuentaChecks.innerHTML=clientes.map(c=>`<label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:.85rem;padding:4px 8px;border:1px solid #333;border-radius:6px;background:${selectedCuentas.includes(c.id)?'rgba(90,158,47,.15)':'transparent'}"><input type="checkbox" value="${c.id}" ${selectedCuentas.includes(c.id)?'checked':''} onchange="updateCuentaHidden()" style="accent-color:#5a9e2f"> ${c.nombre}</label>`).join('')+'<label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:.85rem;padding:4px 8px;border:1px solid #333;border-radius:6px;background:'+( selectedCuentas.includes('todas')?'rgba(90,158,47,.15)':'transparent' )+'"><input type="checkbox" value="todas" '+(selectedCuentas.includes('todas')||selectedCuentas.length===0?'checked':'')+' onchange="updateCuentaHidden()" style="accent-color:#5a9e2f"> Todas</label>';
+  updateCuentaHidden();
+  if(id){const p=equipo.find(p=>p.id===id);if(p){document.getElementById('mp-nombre').value=p.nombre;document.getElementById('mp-rol').value=p.rol;document.getElementById('mp-team').value=p.team||'';document.getElementById('mp-foco').value=p.foco;document.getElementById('mp-color').value=p.color||'';document.querySelectorAll('#mp-color-picker .color-swatch').forEach(function(s){s.classList.toggle('selected',s.dataset.color===(p.color||''));});}}
   else{['mp-nombre','mp-foco'].forEach(x=>document.getElementById(x).value='');document.getElementById('mp-color').value='';document.querySelectorAll('#mp-color-picker .color-swatch').forEach(function(s){s.classList.remove('selected');});}
   syncDropdowns();
-  setTimeout(()=>{if(id){const p=equipo.find(p=>p.id===id);const s=document.getElementById('mp-cuenta');if(p&&s)s.value=p.cuenta;}},60);
   document.getElementById('modal-persona').classList.add('open');
 }
 function closePersonaModal(){document.getElementById('modal-persona').classList.remove('open');}
+function updateCuentaHidden(){
+  const checked=[...document.querySelectorAll('#mp-cuenta-checks input[type=checkbox]:checked')].map(c=>c.value);
+  document.getElementById('mp-cuenta').value=checked.length?checked.join(','):'todas';
+}
 function editPersona(id){openPersonaModal(id);}
 function delPersona(id){equipo=equipo.filter(p=>p.id!==id);renderAll();}
 function savePersona(){
   const nombre=document.getElementById('mp-nombre').value.trim();if(!nombre)return;
   const id=document.getElementById('mp-id').value||"p_"+Date.now();
   const idx=equipo.findIndex(p=>p.id===id);
-  const obj={id,nombre,rol:document.getElementById('mp-rol').value,cuenta:document.getElementById('mp-cuenta').value,autonomia:document.getElementById('mp-autonomia').value,team:document.getElementById('mp-team').value.trim(),foco:document.getElementById('mp-foco').value.trim(),color:document.getElementById('mp-color').value||null};
+  const obj={id,nombre,rol:document.getElementById('mp-rol').value,cuenta:document.getElementById('mp-cuenta').value,team:document.getElementById('mp-team').value.trim(),foco:document.getElementById('mp-foco').value.trim(),color:document.getElementById('mp-color').value||null};
   if(idx>=0)equipo[idx]=obj;else equipo.push(obj);
   closePersonaModal();renderAll();
 }
@@ -1787,7 +1831,7 @@ function saveLogoName(val){
 
 
 // ====== ROLES MANAGER ======
-let rolesDisponibles = ["Junior","Senior","Vos","Analista","Coordinador","Gerente"];
+let rolesDisponibles = ["Junior","Senior","Analista","Coordinador","Gerente"];
 
 function syncRolSelect(){
   const sel = document.getElementById('mp-rol');
