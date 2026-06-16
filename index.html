@@ -823,34 +823,41 @@ async function saveAllState() {
 }
 
 // Realtime
+let realtimeSubscribed = false;
 function subscribeRealtime() {
+  if (realtimeSubscribed) return;
+  realtimeSubscribed = true;
   sb.channel('public-changes')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => { sb.from('tasks').select('*').then(({ data }) => { if (data) { const sbTasks = data.map(r => ({ id: r.id, task: r.title, notes: r.notes || '', cuenta: r.account || 'interna', pais: '', kam: r.assignee || '', status: r.status || 'pendiente', priority: r.priority || 'media', escal: false, hidden: r.hidden || false, created: new Date(r.created_at).getTime(), origin: '' })); const localNumeric = tasks.filter(t => typeof t.id === 'number'); tasks = sbTasks.map(st => { const local = tasks.find(t => t.id === st.id); return local ? Object.assign({}, st, {escal: local.escal}) : st; }).concat(localNumeric); saveState(); renderTasks(); renderProgress(); } }); })
     .subscribe();
 }
 
 // Auth state listener
+let appInitialized = false;
 sb.auth.onAuthStateChange(async (event, session) => {
   if (session && session.user) {
     currentUser = session.user;
-    await loadSupabaseData();
-    // Solo usa localStorage si Supabase no tiene datos guardados en app_state
-    const {data: hasState} = await sb.from('app_state').select('key').limit(1);
-    if (!hasState || hasState.length === 0) loadState();
-    document.getElementById('login-overlay').style.display = 'none';
-    if (currentUser.email.endsWith('@mailamericas.com')) {
-      adminMode = true;
-      document.body.classList.add('admin-mode');
-    } else {
-      adminMode = false;
+    if (!appInitialized) {
+      appInitialized = true;
+      await loadSupabaseData();
+      // Solo usa localStorage si Supabase no tiene datos guardados en app_state
+      const {data: hasState} = await sb.from('app_state').select('key').limit(1);
+      if (!hasState || hasState.length === 0) loadState();
+      document.getElementById('login-overlay').style.display = 'none';
+      if (currentUser.email.endsWith('@mailamericas.com')) {
+        adminMode = true;
+        document.body.classList.add('admin-mode');
+      } else {
+        adminMode = false;
+      }
+      renderAll();
+      syncRolSelect();
+      updateBadge();
+      subscribeRealtime();
+      // Show user email in header
+      const badge = document.getElementById('mode-badge');
+      if (badge) badge.title = currentUser.email;
     }
-    renderAll();
-    syncRolSelect();
-    updateBadge();
-    subscribeRealtime();
-    // Show user email in header
-    const badge = document.getElementById('mode-badge');
-    if (badge) badge.title = currentUser.email;
   }
 });
 
