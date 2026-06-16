@@ -1689,7 +1689,7 @@ function renderMinutas(){
         </div>
       </div>
       <div class="minuta-body">
-        ${m.participantes?`<div class="minuta-section-label">Participantes</div><div style="font-size:.78rem;color:var(--text-dim);margin-bottom:2px">${m.participantes}</div>`:""}
+        ${m.participantes?'<div class="minuta-section-label">Participantes</div><div style="font-size:.78rem;color:var(--text-dim);margin-bottom:2px">'+m.participantes+'</div>':""}
         <div class="minuta-section-label">Temas tratados</div>
         <textarea class="minuta-textarea" onchange="updateMinuta(${m.id},'temas',this.value)">${m.temas}</textarea>
         <div class="minuta-section-label">Decisiones tomadas</div>
