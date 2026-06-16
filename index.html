@@ -834,7 +834,9 @@ sb.auth.onAuthStateChange(async (event, session) => {
   if (session && session.user) {
     currentUser = session.user;
     await loadSupabaseData();
-    loadState(); // restaura ediciones locales (tiene prioridad sobre defaults de Supabase)
+    // Solo usa localStorage si Supabase no tiene datos guardados en app_state
+    const {data: hasState} = await sb.from('app_state').select('key').limit(1);
+    if (!hasState || hasState.length === 0) loadState();
     document.getElementById('login-overlay').style.display = 'none';
     if (currentUser.email.endsWith('@mailamericas.com')) {
       adminMode = true;
