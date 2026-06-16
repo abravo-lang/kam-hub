@@ -1211,7 +1211,7 @@ function renderProgress(){
     `<div class="stat-card s-pend"><div class="stat-val">${pend}</div><div class="stat-label">Pendientes</div></div>`+
     `<div class="stat-card s-bloq"><div class="stat-val">${bloq}</div><div class="stat-label">Bloqueadas</div></div>`+
     `<div class="stat-card s-ok"><div class="stat-val">${ok}/${t.length}</div><div class="stat-label">Resueltas del total</div></div>`+
-    `<div class="progress-bar-card"><div class="pb-title">Por cuenta</div>${bars}${escal>0?`<div style="margin-top:7px;font-size:.67rem;color:#e06060;font-weight:500">⚠ ${escal} requieren escalación</div>`:""}</div>`;
+    `<div class="progress-bar-card"><div class="pb-title">Por cuenta</div>${bars}${escal>0?'<div style="margin-top:7px;font-size:.67rem;color:#e06060;font-weight:500">⚠ '+escal+' requieren escalación</div>':""}</div>`;
 }
 
 // ====== TASKS ======
@@ -1672,6 +1672,9 @@ function renderMinutas(){
     const cc=cColors[m.cuenta]||"var(--text-muted)";
     const cn=cNames[m.cuenta]||m.cuenta;
     const accionActiva=m.tipo==="accion";
+    const accionSectionHtml=accionActiva
+      ?('<div class="escalar-minuta-area"><div class="em-title">⚡ Crear tarea desde esta minuta</div><div class="em-row"><div class="fg-mini"><label>Descripción</label><input type="text" id="em-task-'+m.id+'" placeholder="Ej: Seguimiento acuerdo reunión"></div></div><div class="em-row"><div class="fg-mini"><label>Cuenta</label><select id="em-cuenta-'+m.id+'">'+clientes.map(c=>'<option value="'+c.id+'" '+(m.cuenta===c.id?'selected':'')+'>'+c.nombre+'</option>').join("")+'<option value="interna">Interna</option></select></div><div class="fg-mini"><label>KAM</label><select id="em-kam-'+m.id+'">'+equipo.map(p=>'<option value="'+p.nombre+'">'+p.nombre+'</option>').join("")+'</select></div><div class="fg-mini"><label>Prioridad</label><select id="em-prio-'+m.id+'"><option value="alta">Alta</option><option value="media">Media</option><option value="baja">Baja</option></select></div></div><button class="escalar-btn" onclick="escalarATracker('+m.id+')">→ Agregar al tracker</button><div class="escalar-ok" id="em-ok-'+m.id+'">✓ Tarea agregada al tracker</div></div>')
+      :'<div style="margin-top:10px;font-size:.74rem;color:var(--text-muted);font-style:italic">Esta reunión es de reconocimiento — no genera tareas.</div>';
     return`<div class="minuta-card${accionActiva?" has-action":""}" id="mc-${m.id}">
       <div class="minuta-head" onclick="toggleMinuta(${m.id})">
         <div class="minuta-head-left">
@@ -1698,19 +1701,7 @@ function renderMinutas(){
           <button onclick="setMinutaTipo(${m.id},'recon')" class="${!accionActiva?'active-recon':''}">✓ Solo reconocimiento</button>
           <button onclick="setMinutaTipo(${m.id},'accion')" class="${accionActiva?'active-accion':''}">⚡ Requiere acción</button>
         </div>
-        ${accionActiva?`<div class="escalar-minuta-area">
-          <div class="em-title">⚡ Crear tarea desde esta minuta</div>
-          <div class="em-row">
-            <div class="fg-mini"><label>Descripción</label><input type="text" id="em-task-${m.id}" placeholder="Ej: Seguimiento acuerdo reunión"></div>
-          </div>
-          <div class="em-row">
-            <div class="fg-mini"><label>Cuenta</label><select id="em-cuenta-${m.id}">${clientes.map(c=>'<option value="'+c.id+'" '+(m.cuenta===c.id?'selected':'')+'>'+c.nombre+'</option>').join("")}<option value="interna">Interna</option></select></div>
-            <div class="fg-mini"><label>KAM</label><select id="em-kam-${m.id}">${equipo.map(p=>'<option value="'+p.nombre+'">'+p.nombre+'</option>').join("")}</select></div>
-            <div class="fg-mini"><label>Prioridad</label><select id="em-prio-${m.id}"><option value="alta">Alta</option><option value="media">Media</option><option value="baja">Baja</option></select></div>
-          </div>
-          <button class="escalar-btn" onclick="escalarATracker(${m.id})">→ Agregar al tracker</button>
-          <div class="escalar-ok" id="em-ok-${m.id}">✓ Tarea agregada al tracker</div>
-        </div>`:`<div style="margin-top:10px;font-size:.74rem;color:var(--text-muted);font-style:italic">Esta reunión es de reconocimiento — no genera tareas.</div>`}
+        ${accionSectionHtml}
       </div>
     </div>`;
   }).join("");
